@@ -1,0 +1,29 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Project-specific data files
+janitor_log.txt
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Editor and IDE settings
+.vscode/
+.idea/
+*.swp
+
+# Environment variable files
+.env
+.env.local
+
+# IDE workspace files
+*.code-workspace
