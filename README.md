@@ -59,9 +59,9 @@ Downloads Janitor runs entirely on your Mac. No data is collected, no files are 
 
 If this tool saved you time, consider supporting the project:
 
-[UPI QR code here]
+[UPI- daksh.ganjoo4004@okhdfcbank]
 
-[Buy Me a Coffee link here]
+[Buy Me a Coffee:)]
 
 ## License
 
