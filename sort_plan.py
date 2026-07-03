@@ -8,39 +8,50 @@
 # In a later session we'll take this plan and execute it for real.
 
 import sys
+import json
 from pathlib import Path
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# STEP 1 — Define the classification rules in one central dictionary.
+# STEP 1 — Load the classification rules from config.json.
 #
-# A dictionary (dict) maps keys to values, written as {key: value, ...}.
-# Here each key is the name of a destination folder, and each value is a
-# Python "set" of lowercase extensions that belong there.
+# Beginners: the categories and file extensions this dry-run uses all live in
+# config.json, NOT in this script. Open config.json in any text editor to add
+# extensions or whole new categories without touching a single line of Python.
+# janitor.py reads the very same file, so the plan you see here always matches
+# what an actual clean-up would do.
 #
-# Why a set instead of a list?
-#   Sets are optimised for membership testing ("is .jpg in here?").
-#   The `in` operator on a set is much faster than scanning a list,
-#   and sets automatically ignore duplicates — both nice properties.
+# config.json must sit next to this script. We load it once at startup and
+# bail out cleanly (no scary traceback) if it's missing, malformed, or
+# missing a required key.
 #
-# Why store everything here at the top?
-#   So you only need to look in one place to add or change extensions.
-#   For example, to start treating .webm as a video you'd add a new
-#   "Videos" key — no hunting through the rest of the code required.
+# Each category's extensions are stored as a JSON list; we convert them to a
+# Python "set" because sets are optimised for membership testing ("is .jpg in
+# here?") — the `in` operator on a set is much faster than scanning a list.
 # ─────────────────────────────────────────────────────────────────────────────
-EXTENSION_MAP = {
-    "Photos":       {".jpg", ".jpeg", ".png", ".gif", ".heic",
-                     ".webp", ".bmp", ".tiff", ".svg"},
-    "PDFs":         {".pdf"},
-    "Applications": {".exe", ".msi", ".dmg", ".pkg",
-                     ".deb", ".rpm", ".appimage"},
-    "Zips":         {".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".bz2"},
-    "Music":        {".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".wma"},
-}
+config_path = Path(__file__).parent / "config.json"
 
-# The five folder names we'll eventually create. We keep them in a set so
-# we can quickly check "is this item one of our destination folders?"
-# and skip it if so — they shouldn't appear in the plan.
+if not config_path.exists():
+    print("config.json not found in project folder. Please ensure it's present alongside the script.")
+    sys.exit(1)
+
+try:
+    with open(config_path, "r", encoding="utf-8") as f:
+        config = json.load(f)
+except json.JSONDecodeError as error:
+    print(f"config.json has invalid JSON. Error: {error}. Please check the file for syntax errors.")
+    sys.exit(1)
+
+for required_key in ("downloads_path", "categories", "skip_empty_folders"):
+    if required_key not in config:
+        print(f"config.json is missing required key: '{required_key}'. Please check the file.")
+        sys.exit(1)
+
+EXTENSION_MAP = {name: set(exts) for name, exts in config["categories"].items()}
+
+# The folder names we'd eventually create. We keep them in a set so we can
+# quickly check "is this item one of our destination folders?" and skip it if
+# so — they shouldn't appear in the plan.
 DESTINATION_FOLDERS = set(EXTENSION_MAP.keys())   # {'Photos', 'PDFs', ...}
 
 
@@ -73,11 +84,11 @@ def classify(file_path):
 # ─────────────────────────────────────────────────────────────────────────────
 # STEP 3 — Locate the Downloads folder.
 #
-# Same approach as list_files.py: Path.home() finds the current user's
-# home directory without hardcoding any username, then / "Downloads"
-# builds the full path using pathlib's path-joining operator.
+# The location comes from config.json ("downloads_path"). We call .expanduser()
+# so a leading "~" is expanded to your home folder correctly — this keeps the
+# dry-run pointed at wherever janitor.py is configured to work.
 # ─────────────────────────────────────────────────────────────────────────────
-downloads = Path.home() / "Downloads"
+downloads = Path(config["downloads_path"]).expanduser()
 
 if not downloads.exists():
     print(f"Error: Downloads folder not found at '{downloads}'")

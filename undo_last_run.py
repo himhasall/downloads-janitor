@@ -15,9 +15,48 @@
 #   • Sentinel returns   — a function that returns None to mean "something's wrong"
 
 import sys
+import json
 import shutil
 from pathlib import Path
 from datetime import datetime, timedelta
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STEP 0 — Load settings from config.json.
+#
+# Beginners: the categories and Downloads location this project uses live in
+# config.json, NOT in this script — edit that file to customise things without
+# touching any Python. Undo works entirely from the log file (janitor_log.txt),
+# so it doesn't need the category list, but we load config.json here so it uses
+# the SAME configured Downloads folder as janitor.py — keeping everything
+# consistent wherever you've pointed "downloads_path".
+#
+# config.json must sit next to this script. We load it once at startup and
+# bail out cleanly (no scary traceback) if it's missing, malformed, or
+# missing a required key.
+# ─────────────────────────────────────────────────────────────────────────────
+config_path = Path(__file__).parent / "config.json"
+
+if not config_path.exists():
+    print("config.json not found in project folder. Please ensure it's present alongside the script.")
+    sys.exit(1)
+
+try:
+    with open(config_path, "r", encoding="utf-8") as f:
+        config = json.load(f)
+except json.JSONDecodeError as error:
+    print(f"config.json has invalid JSON. Error: {error}. Please check the file for syntax errors.")
+    sys.exit(1)
+
+for required_key in ("downloads_path", "categories", "skip_empty_folders"):
+    if required_key not in config:
+        print(f"config.json is missing required key: '{required_key}'. Please check the file.")
+        sys.exit(1)
+
+# The configured Downloads folder, with any leading "~" expanded to your home
+# directory. Undo reads exact paths from the log, so this is kept for
+# consistency with janitor.py rather than used to rebuild paths.
+downloads = Path(config["downloads_path"]).expanduser()
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -23,6 +23,7 @@
 #     for unknown flags, so you don't have to parse sys.argv manually.
 
 import sys
+import json
 import argparse
 import shutil
 from pathlib import Path
@@ -30,27 +31,41 @@ from datetime import datetime
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# STEP 1 — Classification rules (identical to sort_plan.py).
+# STEP 1 — Load settings from config.json.
 #
-# We copy the dictionary here so janitor.py is fully self-contained — you can
-# run it without touching sort_plan.py at all. The single source of truth
-# principle means: if you add a new extension, add it here AND in sort_plan.py.
+# Beginners: all the customisable bits — which file extensions go in which
+# category, where your Downloads folder lives, and whether empty category
+# folders should be skipped — live in config.json, NOT in this script. Open
+# config.json in any text editor to add extensions or whole new categories
+# without touching a single line of Python.
+#
+# config.json must sit next to this script. We load it once at startup and
+# bail out cleanly (no scary traceback) if it's missing, malformed, or
+# missing a required key.
 # ─────────────────────────────────────────────────────────────────────────────
-EXTENSION_MAP = {
-    "Photos":       {".jpg", ".jpeg", ".png", ".gif", ".heic",
-                     ".webp", ".bmp", ".tiff", ".svg"},
-    "PDFs":         {".pdf"},
-    "Applications": {".exe", ".msi", ".dmg", ".pkg",
-                     ".deb", ".rpm", ".appimage"},
-    "Zips":         {".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".bz2"},
-    "Music":        {".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".wma"},
-    "Spreadsheets": {".xlsx", ".xls", ".xlsm", ".csv", ".ods"},
-    "AI Stuff":     {".json", ".xml", ".yaml", ".yml", ".toml"},
-}
+config_path = Path(__file__).parent / "config.json"
+
+if not config_path.exists():
+    print("config.json not found in project folder. Please ensure it's present alongside the script.")
+    sys.exit(1)
+
+try:
+    with open(config_path, "r", encoding="utf-8") as f:
+        config = json.load(f)
+except json.JSONDecodeError as error:
+    print(f"config.json has invalid JSON. Error: {error}. Please check the file for syntax errors.")
+    sys.exit(1)
+
+for required_key in ("downloads_path", "categories", "skip_empty_folders"):
+    if required_key not in config:
+        print(f"config.json is missing required key: '{required_key}'. Please check the file.")
+        sys.exit(1)
+
+# Convert the lists of extensions from config.json into sets (same shape the
+# rest of the script expects — fast membership testing, no duplicates).
+EXTENSION_MAP = {name: set(exts) for name, exts in config["categories"].items()}
 
 # A set of all destination folder names — used to skip them while iterating.
-# Note: "AI Stuff" has a space, which is perfectly valid in both Python strings
-# and filesystem folder names. pathlib handles it without any special treatment.
 DESTINATION_FOLDERS = set(EXTENSION_MAP.keys())
 
 
@@ -60,10 +75,12 @@ DESTINATION_FOLDERS = set(EXTENSION_MAP.keys())
 # The log lives in the WORKSPACE folder (same directory as this script),
 # NOT inside Downloads. That way it survives even if Downloads is reorganised.
 #
+# The Downloads location comes from config.json ("downloads_path"). We call
+# .expanduser() so a leading "~" is expanded to your home folder correctly.
 # Path(__file__).parent gives us the directory that contains janitor.py —
 # a reliable way to find the workspace without hardcoding any path.
 # ─────────────────────────────────────────────────────────────────────────────
-downloads = Path.home() / "Downloads"
+downloads = Path(config["downloads_path"]).expanduser()
 log_path  = Path(__file__).parent / "janitor_log.txt"
 
 # Guard clause: stop cleanly if Downloads doesn't exist.
@@ -176,20 +193,30 @@ def log_error(old_path, error_message):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# STEP 6 — Create any missing destination subfolders.
+# STEP 6 — Create destination subfolders (behaviour depends on config).
 #
-# mkdir(parents=False, exist_ok=True) creates the folder if it doesn't exist.
-# exist_ok=True means "don't raise an error if it's already there" — so this
-# block is safe to run every time; it never touches folders that already exist.
+# config["skip_empty_folders"] decides HOW we create folders:
 #
-# We do this BEFORE iterating over Downloads so the targets are always ready.
+#   • True  → don't create anything up front. A category folder is only made
+#             the moment the FIRST file needs to move into it (see STEP 8b).
+#             This keeps Downloads tidy: no empty "Fonts/" folder appears just
+#             because Fonts is a defined category you happen to have no fonts for.
+#
+#   • False → create every category folder now, up front (the original
+#             behaviour). You'll always see all 13 folders, even empty ones.
+#
+# mkdir(exist_ok=True) creates the folder if missing and stays silent if it
+# already exists — so this block is always safe to run.
 # ─────────────────────────────────────────────────────────────────────────────
-print("Checking / creating destination folders...")
-for folder_name in EXTENSION_MAP:
-    folder_path = downloads / folder_name
-    folder_path.mkdir(exist_ok=True)
-    print(f"  {'[ok]':5}  {folder_path}")
-print()
+skip_empty_folders = config["skip_empty_folders"]
+
+if not skip_empty_folders:
+    print("Checking / creating destination folders...")
+    for folder_name in EXTENSION_MAP:
+        folder_path = downloads / folder_name
+        folder_path.mkdir(exist_ok=True)
+        print(f"  {'[ok]':5}  {folder_path}")
+    print()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -269,6 +296,13 @@ for item in sorted(downloads.iterdir()):
     # This block runs in BOTH modes. safe_destination() returns the Path to
     # use and tells us if a rename happened. We wrap shutil.move() in
     # try/except so a permission error or locked file doesn't crash the script.
+    #
+    # When skip_empty_folders is True we didn't create folders up front, so we
+    # create this category's folder on demand right before the first move into
+    # it. mkdir(exist_ok=True) is a no-op once the folder already exists.
+    if skip_empty_folders:
+        destination_folder.mkdir(exist_ok=True)
+
     dest_path, was_renamed = safe_destination(destination_folder, item.name)
 
     try:

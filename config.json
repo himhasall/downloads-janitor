@@ -1,0 +1,123 @@
+{
+  "downloads_path": "~/Downloads",
+  "skip_empty_folders": true,
+  "categories": {
+    "Photos": [
+      ".jpg",
+      ".jpeg",
+      ".png",
+      ".gif",
+      ".heic",
+      ".webp",
+      ".bmp",
+      ".tiff",
+      ".svg",
+      ".raw",
+      ".dng",
+      ".cr2"
+    ],
+    "Videos": [
+      ".mp4",
+      ".mov",
+      ".avi",
+      ".mkv",
+      ".webm",
+      ".flv",
+      ".wmv",
+      ".m4v"
+    ],
+    "PDFs": [
+      ".pdf"
+    ],
+    "Documents": [
+      ".docx",
+      ".doc",
+      ".pages",
+      ".txt",
+      ".rtf",
+      ".odt",
+      ".md",
+      ".gp"
+    ],
+    "Spreadsheets": [
+      ".xlsx",
+      ".xls",
+      ".xlsm",
+      ".csv",
+      ".ods",
+      ".numbers"
+    ],
+    "Presentations": [
+      ".pptx",
+      ".ppt",
+      ".key",
+      ".odp"
+    ],
+    "Applications": [
+      ".exe",
+      ".msi",
+      ".dmg",
+      ".pkg",
+      ".deb",
+      ".rpm",
+      ".appimage",
+      ".iso",
+      ".img"
+    ],
+    "Zips": [
+      ".zip",
+      ".rar",
+      ".7z",
+      ".tar",
+      ".gz",
+      ".tgz",
+      ".bz2"
+    ],
+    "Music": [
+      ".mp3",
+      ".wav",
+      ".flac",
+      ".m4a",
+      ".aac",
+      ".ogg",
+      ".wma",
+      ".midi",
+      ".mid"
+    ],
+    "Design Files": [
+      ".psd",
+      ".ai",
+      ".sketch",
+      ".fig",
+      ".xd",
+      ".indd"
+    ],
+    "Fonts": [
+      ".ttf",
+      ".otf",
+      ".woff",
+      ".woff2"
+    ],
+    "Code": [
+      ".py",
+      ".js",
+      ".ts",
+      ".html",
+      ".css",
+      ".json",
+      ".xml",
+      ".yaml",
+      ".yml",
+      ".toml",
+      ".sh",
+      ".sql",
+      ".jsx",
+      ".tsx"
+    ],
+    "Ebooks": [
+      ".epub",
+      ".mobi",
+      ".azw3"
+    ]
+  }
+}
