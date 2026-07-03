@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Downloads Janitor — Free Mac Tool</title>
+  <meta name="description" content="Sort your messy Downloads folder with one click. Free, open source, runs locally.">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Downloads Janitor — Free Mac Tool">
+  <meta property="og:description" content="Sort your messy Downloads folder with one click. Free, open source, runs locally.">
+  <meta property="og:type" content="website">
+
+  <!-- Favicon: broom / sweep glyph -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230a0b0a'/%3E%3Cpath d='M64 18 L46 54' stroke='%234ade80' stroke-width='7' stroke-linecap='round'/%3E%3Cpath d='M28 82 Q40 50 54 55 Q68 60 60 88 Z' fill='%234ade80'/%3E%3C/svg%3E">
+
+  <!-- Fonts: Bricolage Grotesque (display/body) + JetBrains Mono (technical) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg:        #0a0b0a;
+      --bg-2:      #0e100e;
+      --surface:   #141613;
+      --surface-2: #191c18;
+      --text:      #f1f2ec;
+      --muted:     #8b8f84;
+      --faint:     #5c6057;
+      --accent:    #4ade80;
+      --accent-2:  #22c55e;
+      --accent-ink:#052012;
+      --border:    rgba(255,255,255,0.07);
+      --border-2:  rgba(255,255,255,0.12);
+      --glow:      rgba(74,222,128,0.14);
+      --display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+      --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+    body {
+      font-family: var(--display);
+      font-weight: 400;
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Blueprint grid + vignette atmosphere behind everything */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      background:
+        radial-gradient(120% 80% at 50% -10%, rgba(74,222,128,0.06), transparent 60%),
+        linear-gradient(to right, var(--border) 1px, transparent 1px) 0 0 / 72px 72px,
+        linear-gradient(to bottom, var(--border) 1px, transparent 1px) 0 0 / 72px 72px,
+        var(--bg);
+      mask-image: radial-gradient(120% 100% at 50% 0%, #000 30%, transparent 100%);
+      -webkit-mask-image: radial-gradient(120% 100% at 50% 0%, #000 30%, transparent 100%);
+    }
+    /* Film grain overlay */
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      opacity: 0.04;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+
+    ::selection { background: var(--accent); color: var(--accent-ink); }
+
+    .wrap { width: 100%; max-width: 760px; margin: 0 auto; padding: 0 24px; }
+
+    section, footer.site { padding: 56px 0; }
+
+    a { color: inherit; text-decoration: none; }
+
+    /* ── Section kicker (mono eyebrow) ─────────────────── */
+    .kicker {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .kicker::before {
+      content: "";
+      width: 22px; height: 1px;
+      background: var(--accent);
+      opacity: 0.6;
+    }
+
+    .section-title {
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 26px;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin-bottom: 32px;
+    }
+
+    /* ── Scroll reveal ─────────────────────────────────── */
+    .reveal { opacity: 0; transform: translateY(22px); transition: opacity .7s ease-out, transform .7s ease-out; }
+    .reveal.visible { opacity: 1; transform: none; }
+
+    /* ══ HERO ══════════════════════════════════════════ */
+    .hero { padding-top: 84px; padding-bottom: 40px; }
+    .hero .tag {
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      background: var(--surface);
+    }
+    .hero .tag .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+    .hero h1 {
+      font-family: var(--display);
+      font-weight: 800;
+      font-size: clamp(44px, 12vw, 92px);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+      margin: 26px 0 0;
+    }
+    .hero h1 .of { color: var(--accent); }
+    .hero .sub {
+      color: var(--muted);
+      font-size: clamp(16px, 4.4vw, 19px);
+      max-width: 480px;
+      margin: 22px 0 34px;
+    }
+
+    .cta { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      height: 54px;
+      padding: 0 30px;
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.02em;
+      border-radius: 14px;
+      background: var(--accent);
+      color: var(--accent-ink);
+      border: 1px solid var(--accent);
+      cursor: pointer;
+      transition: transform .2s ease, background .2s ease, box-shadow .2s ease;
+      box-shadow: 0 0 0 rgba(74,222,128,0);
+    }
+    .btn:hover { background: var(--accent-2); transform: translateY(-2px); box-shadow: 0 12px 34px var(--glow); }
+    .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .btn svg { width: 17px; height: 17px; }
+
+    .ghost {
+      font-family: var(--mono);
+      font-size: 13px;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      display: inline-flex; align-items: center; gap: 8px;
+      transition: color .2s ease, gap .2s ease;
+    }
+    .ghost svg { width: 15px; height: 15px; }
+    .ghost:hover { color: var(--text); gap: 12px; }
+    .ghost:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+    /* ── Signature: the sorter panel ───────────────────── */
+    .finder {
+      margin-top: 48px;
+      background: linear-gradient(180deg, var(--surface-2), var(--surface));
+      border: 1px solid var(--border-2);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 24px 60px -20px rgba(0,0,0,0.7);
+    }
+    .finder .bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+    .finder .bar i { width: 11px; height: 11px; border-radius: 50%; background: #2f332d; display: block; }
+    .finder .bar .title {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--faint);
+      margin-left: 8px;
+      letter-spacing: 0.04em;
+    }
+    .finder .body { padding: 12px; display: grid; gap: 8px; }
+    .row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 12px;
+      border-radius: 10px;
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+    }
+    .row .folder {
+      flex: none;
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text);
+      min-width: 118px;
+    }
+    .row .folder svg { width: 17px; height: 17px; color: var(--accent); flex: none; }
+    .row .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      padding: 3px 9px;
+      border-radius: 6px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      white-space: nowrap;
+      opacity: 0;
+      transform: translateY(6px);
+      animation: chipIn .5s ease-out forwards;
+    }
+    @keyframes chipIn { to { opacity: 1; transform: none; } }
+
+    /* ── Marquee strip ─────────────────────────────────── */
+    .strip {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      overflow: hidden;
+      padding: 14px 0;
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+      mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+    }
+    .strip .track {
+      display: inline-flex; gap: 40px; white-space: nowrap;
+      font-family: var(--mono); font-size: 13px; letter-spacing: 0.06em;
+      color: var(--faint);
+      animation: marquee 32s linear infinite;
+    }
+    .strip .track span { display: inline-flex; align-items: center; gap: 40px; }
+    .strip .track b { color: var(--accent); font-weight: 500; }
+    @keyframes marquee { to { transform: translateX(-50%); } }
+
+    /* ── Steps ─────────────────────────────────────────── */
+    .grid { display: grid; gap: 14px; }
+    .steps { grid-template-columns: 1fr; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      position: relative;
+      transition: border-color .25s ease, transform .25s ease, background .25s ease;
+    }
+    .card:hover { border-color: var(--border-2); transform: translateY(-3px); background: var(--surface-2); }
+    .card .idx {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--accent);
+      letter-spacing: 0.1em;
+    }
+    .card h3 { font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: -0.01em; margin: 14px 0 8px; }
+    .card p { color: var(--muted); font-size: 14.5px; }
+
+    /* ── Categories ────────────────────────────────────── */
+    .cats { grid-template-columns: 1fr; }
+    .cat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      border-left: 2px solid transparent;
+      transition: border-color .25s ease, background .25s ease, transform .25s ease;
+    }
+    .cat:hover { border-color: var(--border-2); border-left-color: var(--accent); background: var(--surface-2); transform: translateY(-2px); }
+    .cat .name {
+      font-family: var(--display);
+      font-weight: 600;
+      font-size: 15.5px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .cat .name .n { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+    .cat .ext { font-family: var(--mono); color: var(--muted); font-size: 12px; margin-top: 6px; line-height: 1.7; }
+
+    /* ── Features ──────────────────────────────────────── */
+    .features { list-style: none; display: grid; gap: 2px; }
+    .features li {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 16px 4px;
+      border-bottom: 1px solid var(--border);
+      font-size: 16px;
+    }
+    .features li:first-child { border-top: 1px solid var(--border); }
+    .features li svg { width: 18px; height: 18px; color: var(--accent); flex: none; margin-top: 3px; }
+
+    /* ── Privacy ───────────────────────────────────────── */
+    .privacy-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+    }
+    .privacy-card p { color: var(--muted); font-size: 17px; line-height: 1.7; }
+    .privacy-card strong { color: var(--accent); font-weight: 700; }
+
+    /* ── Support ───────────────────────────────────────── */
+    .support-card {
+      background: linear-gradient(180deg, var(--surface-2), var(--surface));
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 36px 28px;
+      text-align: center;
+    }
+    .support-card p { color: var(--muted); font-size: 16px; max-width: 380px; margin: 0 auto 26px; }
+    .qr {
+      width: 200px; height: 200px;
+      margin: 0 auto 14px;
+      border-radius: 14px;
+      border: 1px solid var(--border-2);
+      padding: 8px;
+      background: #fff;
+      display: block;
+      object-fit: contain;
+    }
+    .qr-caption { font-family: var(--mono); color: var(--faint); font-size: 12px; letter-spacing: 0.04em; margin-bottom: 26px; }
+    .coffee {
+      display: inline-flex; align-items: center; gap: 9px;
+      font-family: var(--mono); font-weight: 500; font-size: 14px;
+      color: var(--accent);
+      border: 1px solid var(--border-2);
+      border-radius: 12px;
+      padding: 12px 22px;
+      transition: background .2s ease, border-color .2s ease;
+    }
+    .coffee:hover { background: var(--glow); border-color: var(--accent); }
+    .coffee:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    .coffee svg { width: 16px; height: 16px; }
+
+    /* ── Footer ────────────────────────────────────────── */
+    footer.site { border-top: 1px solid var(--border); margin-top: 24px; }
+    .foot-top { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+    .foot-mark { font-family: var(--display); font-weight: 800; font-size: 22px; letter-spacing: -0.03em; }
+    .foot-mark .of { color: var(--accent); }
+    .foot-links { display: flex; gap: 22px; font-family: var(--mono); font-size: 13px; }
+    .foot-links a { color: var(--muted); transition: color .2s ease; }
+    .foot-links a:hover { color: var(--accent); }
+    .foot-links a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+    .foot-legal { font-family: var(--mono); font-size: 12px; color: var(--faint); margin-top: 28px; letter-spacing: 0.03em; }
+
+    /* ══ Responsive ════════════════════════════════════ */
+    @media (min-width: 680px) {
+      section, footer.site { padding: 88px 0; }
+      .hero { padding-top: 120px; }
+      .section-title { font-size: 34px; }
+      .cta { flex-direction: row; align-items: center; }
+      .btn { width: auto; min-width: 210px; }
+      .steps { grid-template-columns: repeat(3, 1fr); }
+      .cats { grid-template-columns: repeat(2, 1fr); }
+      .features { grid-template-columns: repeat(2, 1fr); gap: 0 40px; }
+    }
+    @media (min-width: 940px) {
+      .cats { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .reveal { opacity: 1; transform: none; }
+      .chip { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══ 1 · HERO ══════════════════════════════════════ -->
+  <header class="hero wrap reveal">
+    <span class="tag"><span class="dot"></span>FREE · OPEN SOURCE · MACOS</span>
+    <h1>Downloads<br>Janit<span class="of">or</span>.</h1>
+    <p class="sub">Your Downloads folder is a landfill. One click sorts every file into a clean, organized home — locally, on your Mac.</p>
+    <div class="cta">
+      <a class="btn" href="https://github.com/himhasall/downloads-janitor/archive/refs/tags/v2.0.zip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        Download Free
+      </a>
+      <a class="ghost" href="https://github.com/himhasall/downloads-janitor">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49l-.01-1.7c-2.78.62-3.37-1.22-3.37-1.22-.46-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.9 1.57 2.36 1.12 2.94.85.09-.66.35-1.12.63-1.38-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.28 2.75 1.05a9.36 9.36 0 0 1 5 0c1.91-1.33 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.35 4.8-4.58 5.05.36.32.68.94.68 1.9l-.01 2.82c0 .27.18.6.69.49A10.26 10.26 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>
+        View on GitHub
+      </a>
+    </div>
+
+    <!-- Signature sorter panel -->
+    <div class="finder" aria-hidden="true">
+      <div class="bar">
+        <i></i><i></i><i></i>
+        <span class="title">~/Downloads — sorted</span>
+      </div>
+      <div class="body">
+        <div class="row">
+          <span class="folder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>Photos</span>
+          <div class="chips">
+            <span class="chip" style="animation-delay:.15s">IMG_2481.HEIC</span>
+            <span class="chip" style="animation-delay:.28s">screenshot.png</span>
+            <span class="chip" style="animation-delay:.41s">meme.gif</span>
+          </div>
+        </div>
+        <div class="row">
+          <span class="folder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>PDFs</span>
+          <div class="chips">
+            <span class="chip" style="animation-delay:.5s">boarding-pass.pdf</span>
+            <span class="chip" style="animation-delay:.63s">lease.pdf</span>
+          </div>
+        </div>
+        <div class="row">
+          <span class="folder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>Music</span>
+          <div class="chips">
+            <span class="chip" style="animation-delay:.72s">demo-take-3.wav</span>
+            <span class="chip" style="animation-delay:.85s">playlist.mp3</span>
+          </div>
+        </div>
+        <div class="row">
+          <span class="folder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>Zips</span>
+          <div class="chips">
+            <span class="chip" style="animation-delay:.94s">assets-final-FINAL.zip</span>
+            <span class="chip" style="animation-delay:1.07s">backup.tar.gz</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Marquee -->
+  <div class="strip reveal" aria-hidden="true">
+    <div class="track">
+      <span><b>Photos</b> Videos <b>PDFs</b> Documents <b>Spreadsheets</b> Presentations <b>Applications</b> Zips <b>Music</b> Design Files <b>Fonts</b> Code <b>Ebooks</b></span>
+      <span><b>Photos</b> Videos <b>PDFs</b> Documents <b>Spreadsheets</b> Presentations <b>Applications</b> Zips <b>Music</b> Design Files <b>Fonts</b> Code <b>Ebooks</b></span>
+    </div>
+  </div>
+
+  <!-- ══ 2 · HOW IT WORKS ══════════════════════════════ -->
+  <section class="wrap reveal">
+    <span class="kicker">01 / Getting started</span>
+    <h2 class="section-title">Three steps. No terminal required.</h2>
+    <div class="grid steps">
+      <div class="card">
+        <span class="idx">STEP 01</span>
+        <h3>Download &amp; Install</h3>
+        <p>Download the zip, unzip it, and double-click INSTALL.command. That's it.</p>
+      </div>
+      <div class="card">
+        <span class="idx">STEP 02</span>
+        <h3>One Click to Sort</h3>
+        <p>Double-click the Sort shortcut anytime. 13 categories, fully automatic.</p>
+      </div>
+      <div class="card">
+        <span class="idx">STEP 03</span>
+        <h3>Made a Mistake? Undo</h3>
+        <p>Double-click the Undo shortcut. Every file goes right back.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ 3 · WHAT GETS SORTED ══════════════════════════ -->
+  <section class="wrap reveal">
+    <span class="kicker">02 / Categories</span>
+    <h2 class="section-title">Thirteen homes for your mess.</h2>
+    <div class="grid cats">
+      <div class="cat"><div class="name">Photos <span class="n">01</span></div><div class="ext">.jpg .png .heic .webp .gif</div></div>
+      <div class="cat"><div class="name">Videos <span class="n">02</span></div><div class="ext">.mp4 .mov .mkv .avi .webm</div></div>
+      <div class="cat"><div class="name">PDFs <span class="n">03</span></div><div class="ext">.pdf</div></div>
+      <div class="cat"><div class="name">Documents <span class="n">04</span></div><div class="ext">.docx .txt .pages .rtf .md</div></div>
+      <div class="cat"><div class="name">Spreadsheets <span class="n">05</span></div><div class="ext">.xlsx .csv .numbers .ods</div></div>
+      <div class="cat"><div class="name">Presentations <span class="n">06</span></div><div class="ext">.pptx .key .ppt .odp</div></div>
+      <div class="cat"><div class="name">Applications <span class="n">07</span></div><div class="ext">.dmg .pkg .exe .iso .msi</div></div>
+      <div class="cat"><div class="name">Zips <span class="n">08</span></div><div class="ext">.zip .rar .7z .tar .gz</div></div>
+      <div class="cat"><div class="name">Music <span class="n">09</span></div><div class="ext">.mp3 .wav .flac .m4a .aac</div></div>
+      <div class="cat"><div class="name">Design Files <span class="n">10</span></div><div class="ext">.psd .ai .fig .sketch .xd</div></div>
+      <div class="cat"><div class="name">Fonts <span class="n">11</span></div><div class="ext">.ttf .otf .woff .woff2</div></div>
+      <div class="cat"><div class="name">Code <span class="n">12</span></div><div class="ext">.py .js .html .css .json</div></div>
+      <div class="cat"><div class="name">Ebooks <span class="n">13</span></div><div class="ext">.epub .mobi .azw3</div></div>
+    </div>
+  </section>
+
+  <!-- ══ 4 · FEATURES ══════════════════════════════════ -->
+  <section class="wrap reveal">
+    <span class="kicker">03 / Why it's good</span>
+    <h2 class="section-title">Small tool. Serious manners.</h2>
+    <ul class="features">
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Sorts into 13 smart categories</li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Fully customizable — edit config.json to add your own</li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>One-click undo if anything goes wrong</li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Runs entirely on your Mac — nothing collected</li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4 4L19 7"/></svg>Open source and free, forever</li>
+    </ul>
+  </section>
+
+  <!-- ══ 5 · PRIVACY ═══════════════════════════════════ -->
+  <section class="wrap reveal">
+    <span class="kicker">04 / Privacy</span>
+    <h2 class="section-title">Your files never leave.</h2>
+    <div class="privacy-card">
+      <p>Downloads Janitor runs <strong>100% locally</strong> on your Mac. No files are uploaded. No data is collected. No internet connection required. No account needed. Your files stay yours.</p>
+    </div>
+  </section>
+
+  <!-- ══ 6 · SUPPORT ═══════════════════════════════════ -->
+  <section class="wrap reveal">
+    <span class="kicker">05 / Support</span>
+    <h2 class="section-title">Saved you some time?</h2>
+    <div class="support-card">
+      <p>If this tool cleaned up your day, consider buying me a coffee.</p>
+      <img class="qr" src="e4fda03b-2afa-4815-a8a3-c4238b1d2fc9.jpg" alt="UPI QR code to support the project" width="200" height="200">
+      <div class="qr-caption">SCAN WITH ANY UPI APP TO SUPPORT THIS PROJECT</div>
+      <div>
+        <a class="coffee" href="#">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5Z"/><path d="M17 9h2a2 2 0 0 1 0 4h-2"/><path d="M7 3v2M11 3v2M15 3v2"/></svg>
+          [Buy Me a Coffee link]
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ 7 · FOOTER ════════════════════════════════════ -->
+  <footer class="site wrap reveal">
+    <div class="foot-top">
+      <div class="foot-mark">Janit<span class="of">or</span></div>
+      <nav class="foot-links">
+        <a href="https://instagram.com/whydakshh">Built by Daksh</a>
+        <a href="https://github.com/himhasall/downloads-janitor">GitHub</a>
+      </nav>
+    </div>
+    <div class="foot-legal">MIT LICENSE — FREE TO USE, MODIFY, AND SHARE.</div>
+  </footer>
+
+  <script>
+    // Reveal sections once as they enter the viewport. No libraries.
+    (function () {
+      var items = document.querySelectorAll('.reveal');
+      if (!('IntersectionObserver' in window)) {
+        items.forEach(function (el) { el.classList.add('visible'); });
+        return;
+      }
+      var obs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            obs.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.12 });
+      items.forEach(function (el) { obs.observe(el); });
+    })();
+  </script>
+
+</body>
+</html>
